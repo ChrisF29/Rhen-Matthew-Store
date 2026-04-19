@@ -34,6 +34,7 @@ try {
         $productId = (int) ($data['product_id'] ?? 0);
         $type = (string) ($data['type'] ?? '');
         $direction = (string) ($data['direction'] ?? 'increase');
+        $quantityUnit = (string) ($data['quantity_unit'] ?? 'piece');
         $quantity = (int) ($data['quantity'] ?? 0);
         $notes = trim((string) ($data['notes'] ?? ''));
 
@@ -49,22 +50,34 @@ try {
             json_response(['success' => false, 'message' => 'Invalid adjustment direction.'], 422);
         }
 
-        $signedQuantity = $quantity;
-        if ($type === 'out') {
-            $signedQuantity = -$quantity;
-        }
-
-        if ($type === 'adjustment' && $direction === 'decrease') {
-            $signedQuantity = -$quantity;
+        if (!in_array($quantityUnit, ['piece', 'case'], true)) {
+            json_response(['success' => false, 'message' => 'Invalid quantity unit.'], 422);
         }
 
         $db->beginTransaction();
 
-        $productStatement = $db->prepare('SELECT id FROM products WHERE id = :id LIMIT 1');
+        $productStatement = $db->prepare('SELECT id, pieces_per_case FROM products WHERE id = :id LIMIT 1');
         $productStatement->execute(['id' => $productId]);
-        if (!$productStatement->fetch()) {
+        $product = $productStatement->fetch();
+        if (!$product) {
             $db->rollBack();
             json_response(['success' => false, 'message' => 'Product not found.'], 404);
+        }
+
+        $piecesPerCase = (int) ($product['pieces_per_case'] ?? 24);
+        if ($piecesPerCase <= 0) {
+            $piecesPerCase = 1;
+        }
+
+        $baseQuantity = $quantityUnit === 'case' ? ($quantity * $piecesPerCase) : $quantity;
+
+        $signedQuantity = $baseQuantity;
+        if ($type === 'out') {
+            $signedQuantity = -$baseQuantity;
+        }
+
+        if ($type === 'adjustment' && $direction === 'decrease') {
+            $signedQuantity = -$baseQuantity;
         }
 
         $insert = $db->prepare(

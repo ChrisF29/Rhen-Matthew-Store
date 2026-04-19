@@ -490,6 +490,10 @@
         const typeSelect = document.getElementById('inventoryType');
         const directionInput = document.getElementById('inventoryDirection');
         const directionLabel = document.querySelector('label[for="inventoryDirection"]');
+        const productSelect = document.getElementById('inventoryProduct');
+        const quantityUnitSelect = document.getElementById('inventoryQuantityUnit');
+        const quantityInput = document.getElementById('inventoryQuantity');
+        const quantityHelper = document.getElementById('inventoryQtyHelper');
 
         const toggleDirectionVisibility = () => {
             if (!(typeSelect instanceof HTMLSelectElement) || !(directionInput instanceof HTMLSelectElement) || !(directionLabel instanceof HTMLElement)) {
@@ -505,6 +509,32 @@
 
         typeSelect?.addEventListener('change', toggleDirectionVisibility);
         toggleDirectionVisibility();
+
+        const updateInventoryQuantityHelper = () => {
+            if (!(productSelect instanceof HTMLSelectElement) || !(quantityUnitSelect instanceof HTMLSelectElement) || !(quantityInput instanceof HTMLInputElement) || !(quantityHelper instanceof HTMLElement)) {
+                return;
+            }
+
+            const selectedProductId = Number(productSelect.value || 0);
+            const selectedProduct = state.productCatalog.find((product) => Number(product.id) === selectedProductId);
+            const piecesPerCase = Math.max(1, Number(selectedProduct?.pieces_per_case || 1));
+
+            if (quantityUnitSelect.value === 'case') {
+                quantityInput.placeholder = '1';
+                if (!selectedProduct) {
+                    quantityHelper.textContent = 'Select a product to see PCS/CASE conversion.';
+                    return;
+                }
+                quantityHelper.textContent = `1 case = ${piecesPerCase} pcs for the selected product.`;
+                return;
+            }
+
+            quantityInput.placeholder = '10';
+            quantityHelper.textContent = 'Enter quantity in pieces.';
+        };
+
+        productSelect?.addEventListener('change', updateInventoryQuantityHelper);
+        quantityUnitSelect?.addEventListener('change', updateInventoryQuantityHelper);
 
         initializeActionButtons(tableBody, {
             'delete-movement': async (button) => {
@@ -544,6 +574,7 @@
                 product_id: Number(formData.get('product_id') || 0),
                 type: String(formData.get('type') || ''),
                 direction: String(formData.get('direction') || 'increase'),
+                quantity_unit: String(formData.get('quantity_unit') || 'piece'),
                 quantity: Number(formData.get('quantity') || 0),
                 notes: String(formData.get('notes') || '').trim(),
             };
@@ -573,8 +604,12 @@
             try {
                 await loadProductCatalog();
                 select.innerHTML = getProductOptionsHtml();
+                updateInventoryQuantityHelper();
             } catch (error) {
                 select.innerHTML = '<option value="">Unable to load products</option>';
+                if (quantityHelper instanceof HTMLElement) {
+                    quantityHelper.textContent = 'Unable to load product case conversion details.';
+                }
             }
         }
 
@@ -597,8 +632,8 @@
                                 <td>${sanitize(formatDate(entry.created_at))}</td>
                                 <td>${sanitize(entry.product_name)}</td>
                                 <td>${buildStatusChip(entry.type)}</td>
-                                <td>${sanitize(qtyLabel)}</td>
-                                <td>${sanitize(entry.stock_quantity)}</td>
+                                <td>${sanitize(`${qtyLabel} pcs`)}</td>
+                                <td>${sanitize(`${entry.stock_quantity} pcs`)}</td>
                                 <td>${sanitize(entry.notes || '-')}</td>
                                 <td>
                                     <button class="btn btn-danger btn-sm" type="button" data-action="delete-movement" data-id="${sanitize(entry.id)}">

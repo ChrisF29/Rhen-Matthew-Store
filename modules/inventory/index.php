@@ -24,8 +24,8 @@
                     <th>Date</th>
                     <th>Product</th>
                     <th>Type</th>
-                    <th>Quantity</th>
-                    <th>Balance</th>
+                    <th>Quantity (pcs)</th>
+                    <th>Balance (pcs)</th>
                     <th>Notes</th>
                     <th>Actions</th>
                 </tr>
@@ -62,6 +62,13 @@
                     <option value="increase">Increase</option>
                     <option value="decrease">Decrease</option>
                 </select>
+
+                <label for="inventoryQuantityUnit">Quantity Unit</label>
+                <select id="inventoryQuantityUnit" name="quantity_unit" required>
+                    <option value="piece">Piece</option>
+                    <option value="case">Case</option>
+                </select>
+                <p id="inventoryQtyHelper" class="field-help">Enter quantity in pieces.</p>
 
                 <label for="inventoryQuantity">Quantity</label>
                 <input id="inventoryQuantity" name="quantity" type="number" min="1" step="1" placeholder="10" required>
