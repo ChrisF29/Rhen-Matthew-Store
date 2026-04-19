@@ -885,17 +885,31 @@
         const tableBody = document.querySelector('#deliveriesTable tbody');
         const form = document.getElementById('deliveryForm');
         const modalTitle = document.getElementById('deliveryModalTitle');
+        const addDeliveryButton = document.querySelector('[data-open-modal="deliveryModal"]');
 
         if (!(tableBody instanceof HTMLElement) || !(form instanceof HTMLFormElement)) {
             return;
         }
 
-        document.querySelector('[data-open-modal="deliveryModal"]')?.addEventListener('click', () => {
+        const loadNextDeliveryReference = async () => {
+            try {
+                const response = await request('api/delivery_api.php?action=next_reference');
+                const nextReference = String(response?.data?.reference_no || '').trim();
+                if (nextReference !== '') {
+                    setFormValue(form, 'reference_no', nextReference);
+                }
+            } catch (error) {
+                // Keep form usable even if auto-reference request fails.
+            }
+        };
+
+        addDeliveryButton?.addEventListener('click', async () => {
             form.reset();
             setFormValue(form, 'id', '');
             if (modalTitle) {
                 modalTitle.textContent = 'Add Delivery';
             }
+            await loadNextDeliveryReference();
         });
 
         initializeActionButtons(tableBody, {

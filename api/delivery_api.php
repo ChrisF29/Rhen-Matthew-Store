@@ -9,12 +9,27 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
     if ($method === 'GET') {
+        $action = (string) ($_GET['action'] ?? '');
+        if ($action === 'next_reference') {
+            json_response([
+                'success' => true,
+                'data' => [
+                    'reference_no' => generate_next_delivery_reference($db),
+                ],
+            ]);
+        }
+
         $deliveries = $db->query('SELECT * FROM deliveries ORDER BY created_at DESC, id DESC')->fetchAll();
         json_response(['success' => true, 'data' => $deliveries]);
     }
 
     if ($method === 'POST') {
-        $payload = validate_delivery_payload(request_data());
+        $data = request_data();
+        if (trim((string) ($data['reference_no'] ?? '')) === '') {
+            $data['reference_no'] = generate_next_delivery_reference($db);
+        }
+
+        $payload = validate_delivery_payload($data);
 
         $insert = $db->prepare(
             'INSERT INTO deliveries (reference_no, customer_name, address, scheduled_date, status, created_at)
@@ -80,10 +95,41 @@ try {
 
     json_response(['success' => false, 'message' => 'Method not allowed.'], 405);
 } catch (Throwable $exception) {
+    if ($exception instanceof PDOException && (string) $exception->getCode() === '23000') {
+        json_response([
+            'success' => false,
+            'message' => 'Reference No. already exists. Please use a different one.',
+        ], 409);
+    }
+
     json_response([
         'success' => false,
         'message' => 'Unexpected server error while handling delivery request.',
     ], 500);
+}
+
+function generate_next_delivery_reference(PDO $db): string
+{
+    $year = date('Y');
+    $prefix = 'DLV-' . $year . '-';
+
+    $statement = $db->prepare(
+        'SELECT reference_no
+         FROM deliveries
+         WHERE reference_no LIKE :prefix
+         ORDER BY id DESC
+         LIMIT 1'
+    );
+    $statement->execute(['prefix' => $prefix . '%']);
+
+    $latestReference = (string) ($statement->fetchColumn() ?: '');
+    $nextNumber = 1;
+
+    if (preg_match('/^DLV-\d{4}-(\d+)$/', $latestReference, $matches) === 1) {
+        $nextNumber = ((int) $matches[1]) + 1;
+    }
+
+    return sprintf('%s%s', $prefix, str_pad((string) $nextNumber, 4, '0', STR_PAD_LEFT));
 }
 
 function validate_delivery_payload(array $data): array
