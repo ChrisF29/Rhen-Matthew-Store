@@ -115,14 +115,15 @@ function adjust_product_stock(PDO $db, int $productId, int $delta): bool
 {
     $statement = $db->prepare(
         'UPDATE products
-         SET stock_quantity = stock_quantity + :delta,
+         SET stock_quantity = stock_quantity + :delta_update,
              updated_at = NOW()
          WHERE id = :id
-           AND (stock_quantity + :delta) >= 0'
+           AND (stock_quantity + :delta_guard) >= 0'
     );
 
     $statement->execute([
-        'delta' => $delta,
+        'delta_update' => $delta,
+        'delta_guard' => $delta,
         'id' => $productId,
     ]);
 

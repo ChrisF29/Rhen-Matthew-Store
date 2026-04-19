@@ -39,6 +39,7 @@ try {
 
         $payload = validate_delivery_payload($data);
         $payload['id'] = $id;
+        $payload['status_check'] = $payload['status'];
 
         $update = $db->prepare(
             'UPDATE deliveries
@@ -47,7 +48,7 @@ try {
                  address = :address,
                  scheduled_date = :scheduled_date,
                  status = :status,
-                 delivered_at = CASE WHEN :status = "delivered" THEN NOW() ELSE NULL END
+                 delivered_at = CASE WHEN :status_check = "delivered" THEN NOW() ELSE NULL END
              WHERE id = :id'
         );
         $update->execute($payload);
