@@ -10,6 +10,7 @@ $allowedModules = [
     'inventory' => 'Inventory',
     'sales' => 'Sales',
     'deliveries' => 'Deliveries',
+    'drivers' => 'Drivers',
     'users' => 'Users',
 ];
 

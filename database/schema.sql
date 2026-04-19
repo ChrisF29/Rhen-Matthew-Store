@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS products (
     category VARCHAR(80) NOT NULL,
     size VARCHAR(60) NOT NULL,
     price DECIMAL(12, 2) NOT NULL DEFAULT 0,
+    pieces_per_case INT UNSIGNED NOT NULL DEFAULT 24,
     stock_quantity INT NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -57,6 +58,9 @@ CREATE TABLE IF NOT EXISTS sales_items (
     sale_id INT UNSIGNED NOT NULL,
     product_id INT UNSIGNED NOT NULL,
     quantity INT UNSIGNED NOT NULL,
+    ordered_qty INT UNSIGNED NOT NULL DEFAULT 1,
+    order_unit ENUM('piece', 'case', 'half_case', 'quarter_case') NOT NULL DEFAULT 'piece',
+    base_units INT UNSIGNED NOT NULL DEFAULT 0,
     price DECIMAL(12, 2) NOT NULL,
     subtotal DECIMAL(12, 2) NOT NULL,
     CONSTRAINT fk_sales_items_sale
@@ -71,6 +75,22 @@ CREATE TABLE IF NOT EXISTS sales_items (
         ON DELETE RESTRICT,
     INDEX idx_sales_items_sale (sale_id),
     INDEX idx_sales_items_product (product_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS drivers (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(140) NOT NULL,
+    phone VARCHAR(40) NOT NULL,
+    license_no VARCHAR(80) NOT NULL,
+    vehicle_assigned VARCHAR(140) NULL,
+    status ENUM('active', 'on_leave', 'inactive') NOT NULL DEFAULT 'active',
+    hired_date DATE NOT NULL,
+    notes VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_drivers_license (license_no),
+    INDEX idx_drivers_status_hired (status, hired_date),
+    INDEX idx_drivers_name (full_name)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS deliveries (

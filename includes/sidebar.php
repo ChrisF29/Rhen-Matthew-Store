@@ -8,6 +8,7 @@ $navItems = [
     'inventory' => ['label' => 'Inventory', 'icon' => 'boxes'],
     'sales' => ['label' => 'Sales', 'icon' => 'receipt-text'],
     'deliveries' => ['label' => 'Deliveries', 'icon' => 'truck'],
+    'drivers' => ['label' => 'Drivers', 'icon' => 'car'],
     'users' => ['label' => 'Users', 'icon' => 'users-round'],
 ];
 ?>

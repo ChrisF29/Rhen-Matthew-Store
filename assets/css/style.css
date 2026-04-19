@@ -569,7 +569,7 @@ textarea:focus {
 
 .sale-item-row {
     display: grid;
-    grid-template-columns: 1fr 120px auto;
+    grid-template-columns: minmax(240px, 1fr) 160px 120px auto;
     gap: 0.55rem;
     align-items: end;
     padding: 0.6rem;
@@ -631,6 +631,21 @@ textarea:focus {
 .status-chip.admin {
     background: rgba(35, 116, 168, 0.15);
     color: #184f73;
+}
+
+.status-chip.active {
+    background: rgba(31, 141, 85, 0.14);
+    color: #1b6840;
+}
+
+.status-chip.inactive {
+    background: rgba(191, 61, 47, 0.15);
+    color: #8b2d23;
+}
+
+.status-chip.on_leave {
+    background: rgba(237, 155, 31, 0.15);
+    color: #945b00;
 }
 
 .alert {

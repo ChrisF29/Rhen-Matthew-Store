@@ -2,7 +2,7 @@
     <div class="module-toolbar">
         <div>
             <h3>Sales</h3>
-            <p>Record customer orders, capture payment mode (cash or utang), and update stock in real time.</p>
+            <p>Record customer orders by piece, full case, half case, or quarter case with automatic stock conversion.</p>
         </div>
         <div class="toolbar-actions">
             <button class="btn btn-primary" type="button" data-open-modal="saleModal">
@@ -15,7 +15,7 @@
     <section class="panel">
         <div class="panel-head">
             <h4>Sales Transactions</h4>
-            <span>Auto-deducts stock per line item</span>
+            <span>Auto-deducts piece-level stock per line item</span>
         </div>
         <div class="table-wrap">
             <table class="data-table" id="salesTable">
@@ -24,7 +24,7 @@
                     <th>Sale #</th>
                     <th>Date</th>
                     <th>Customer</th>
-                    <th>Items</th>
+                    <th>Total Units (pcs)</th>
                     <th>Total</th>
                     <th>Payment</th>
                     <th>Status</th>

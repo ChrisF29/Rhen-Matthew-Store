@@ -2,7 +2,7 @@
     <div class="module-toolbar">
         <div>
             <h3>Products</h3>
-            <p>Create and maintain your softdrinks catalog including variants, sizes, and pricing.</p>
+            <p>Create and maintain your softdrinks catalog with case pack size and piece-level stock.</p>
         </div>
         <div class="toolbar-actions">
             <button class="btn btn-primary" type="button" data-open-modal="productModal">
@@ -25,13 +25,14 @@
                     <th>Name</th>
                     <th>Category</th>
                     <th>Size</th>
-                    <th>Price</th>
-                    <th>Stock</th>
+                    <th>Price / Piece</th>
+                    <th>Pcs / Case</th>
+                    <th>Stock (pcs)</th>
                     <th>Actions</th>
                 </tr>
                 </thead>
                 <tbody>
-                <tr><td colspan="7" class="empty-cell">Loading products...</td></tr>
+                <tr><td colspan="8" class="empty-cell">Loading products...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -61,7 +62,10 @@
                 <label for="productPrice">Price (PHP)</label>
                 <input id="productPrice" name="price" type="number" min="0" step="0.01" placeholder="18.00" required>
 
-                <label for="productStock">Starting Stock</label>
+                <label for="productPiecesPerCase">Pieces Per Case</label>
+                <input id="productPiecesPerCase" name="pieces_per_case" type="number" min="1" step="1" placeholder="24" required>
+
+                <label for="productStock">Starting Stock (pcs)</label>
                 <input id="productStock" name="stock_quantity" type="number" min="0" step="1" placeholder="100" required>
 
                 <div class="modal-actions">

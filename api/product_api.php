@@ -29,8 +29,8 @@ try {
         $payload = validate_product_payload(request_data());
 
         $insert = $db->prepare(
-            'INSERT INTO products (name, category, size, price, stock_quantity, created_at, updated_at)
-             VALUES (:name, :category, :size, :price, :stock_quantity, NOW(), NOW())'
+              'INSERT INTO products (name, category, size, price, pieces_per_case, stock_quantity, created_at, updated_at)
+               VALUES (:name, :category, :size, :price, :pieces_per_case, :stock_quantity, NOW(), NOW())'
         );
         $insert->execute($payload);
 
@@ -58,6 +58,7 @@ try {
                  category = :category,
                  size = :size,
                  price = :price,
+                 pieces_per_case = :pieces_per_case,
                  stock_quantity = :stock_quantity,
                  updated_at = NOW()
              WHERE id = :id'
@@ -113,6 +114,7 @@ function validate_product_payload(array $data): array
     $category = trim((string) ($data['category'] ?? ''));
     $size = trim((string) ($data['size'] ?? ''));
     $price = (float) ($data['price'] ?? 0);
+    $piecesPerCase = (int) ($data['pieces_per_case'] ?? 24);
     $stockQuantity = (int) ($data['stock_quantity'] ?? 0);
 
     if ($name === '' || $category === '' || $size === '') {
@@ -121,6 +123,10 @@ function validate_product_payload(array $data): array
 
     if ($price < 0) {
         json_response(['success' => false, 'message' => 'Price must be zero or greater.'], 422);
+    }
+
+    if ($piecesPerCase <= 0) {
+        json_response(['success' => false, 'message' => 'Pieces per case must be at least 1.'], 422);
     }
 
     if ($stockQuantity < 0) {
@@ -132,6 +138,7 @@ function validate_product_payload(array $data): array
         'category' => $category,
         'size' => $size,
         'price' => $price,
+        'pieces_per_case' => $piecesPerCase,
         'stock_quantity' => $stockQuantity,
     ];
 }

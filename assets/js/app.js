@@ -9,6 +9,7 @@
         inventory: initInventoryModule,
         sales: initSalesModule,
         deliveries: initDeliveriesModule,
+        drivers: initDriversModule,
         users: initUsersModule,
     };
 
@@ -61,7 +62,7 @@
             }
 
             const target = event.target;
-            if (!(target instanceof HTMLElement)) {
+            if (!(target instanceof Element)) {
                 return;
             }
 
@@ -86,7 +87,7 @@
     function initializeModalEvents() {
         document.addEventListener('click', (event) => {
             const target = event.target;
-            if (!(target instanceof HTMLElement)) {
+            if (!(target instanceof Element)) {
                 return;
             }
 
@@ -287,7 +288,10 @@
         return state.productCatalog
             .map((product) => {
                 const isSelected = String(product.id) === selectedId;
-                const stockText = `${product.name} (${product.size}) - ${product.stock_quantity} in stock`;
+                const stockPieces = Number(product.stock_quantity || 0);
+                const piecesPerCase = Number(product.pieces_per_case || 1);
+                const fullCases = piecesPerCase > 0 ? Math.floor(stockPieces / piecesPerCase) : 0;
+                const stockText = `${product.name} (${product.size}) - ${stockPieces} pcs (${fullCases} case${fullCases === 1 ? '' : 's'})`;
                 return `<option value="${sanitize(product.id)}" ${isSelected ? 'selected' : ''}>${sanitize(stockText)}</option>`;
             })
             .join('');
@@ -296,7 +300,7 @@
     function initializeActionButtons(container, handlers) {
         container.addEventListener('click', (event) => {
             const target = event.target;
-            if (!(target instanceof HTMLElement)) {
+            if (!(target instanceof Element)) {
                 return;
             }
 
@@ -331,6 +335,7 @@
             if (hiddenId instanceof HTMLInputElement) {
                 hiddenId.value = '';
             }
+            setFormValue(form, 'pieces_per_case', '24');
             if (modalTitle) {
                 modalTitle.textContent = 'Add Product';
             }
@@ -343,6 +348,7 @@
                 const category = button.getAttribute('data-category') || '';
                 const size = button.getAttribute('data-size') || '';
                 const price = button.getAttribute('data-price') || '';
+                const piecesPerCase = button.getAttribute('data-pack') || '';
                 const stock = button.getAttribute('data-stock') || '';
 
                 setFormValue(form, 'id', id);
@@ -350,6 +356,7 @@
                 setFormValue(form, 'category', category);
                 setFormValue(form, 'size', size);
                 setFormValue(form, 'price', price);
+                setFormValue(form, 'pieces_per_case', piecesPerCase);
                 setFormValue(form, 'stock_quantity', stock);
 
                 if (modalTitle) {
@@ -397,6 +404,7 @@
                 category: String(formData.get('category') || '').trim(),
                 size: String(formData.get('size') || '').trim(),
                 price: Number(formData.get('price') || 0),
+                pieces_per_case: Number(formData.get('pieces_per_case') || 0),
                 stock_quantity: Number(formData.get('stock_quantity') || 0),
             };
 
@@ -419,7 +427,7 @@
                 const products = Array.isArray(response.data) ? response.data : [];
 
                 if (products.length === 0) {
-                    tableBody.innerHTML = '<tr><td colspan="7" class="empty-cell">No products yet.</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="8" class="empty-cell">No products yet.</td></tr>';
                     return;
                 }
 
@@ -436,6 +444,7 @@
                                 <td>${sanitize(product.category)}</td>
                                 <td>${sanitize(product.size)}</td>
                                 <td>${toCurrency(product.price)}</td>
+                                <td>${sanitize(product.pieces_per_case)}</td>
                                 <td><span class="stock-pill ${stockClass}">${stockLabel}</span> <strong>${sanitize(product.stock_quantity)}</strong></td>
                                 <td>
                                     <div class="inline-actions">
@@ -446,6 +455,7 @@
                                             data-category="${sanitize(product.category)}"
                                             data-size="${sanitize(product.size)}"
                                             data-price="${sanitize(product.price)}"
+                                            data-pack="${sanitize(product.pieces_per_case)}"
                                             data-stock="${sanitize(product.stock_quantity)}"
                                         >
                                             <i data-lucide="pencil"></i>Edit
@@ -462,7 +472,7 @@
 
                 refreshIcons();
             } catch (error) {
-                tableBody.innerHTML = `<tr><td colspan="7" class="empty-cell">${sanitize(error.message)}</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="8" class="empty-cell">${sanitize(error.message)}</td></tr>`;
             }
         }
 
@@ -636,7 +646,7 @@
 
         itemsContainer.addEventListener('click', (event) => {
             const target = event.target;
-            if (!(target instanceof HTMLElement)) {
+            if (!(target instanceof Element)) {
                 return;
             }
 
@@ -708,17 +718,20 @@
             const lineItems = [...itemsContainer.querySelectorAll('.sale-item-row')]
                 .map((row) => {
                     const productField = row.querySelector('select[name="product_id"]');
-                    const quantityField = row.querySelector('input[name="quantity"]');
+                    const quantityField = row.querySelector('input[name="ordered_qty"]');
+                    const unitField = row.querySelector('select[name="order_unit"]');
 
                     const productId = Number(productField?.value || 0);
-                    const quantity = Number(quantityField?.value || 0);
+                    const orderedQty = Number(quantityField?.value || 0);
+                    const orderUnit = String(unitField?.value || 'piece');
 
                     return {
                         product_id: productId,
-                        quantity,
+                        ordered_qty: orderedQty,
+                        order_unit: orderUnit,
                     };
                 })
-                .filter((item) => item.product_id > 0 && item.quantity > 0);
+                .filter((item) => item.product_id > 0 && item.ordered_qty > 0);
 
             if (lineItems.length === 0) {
                 showToast('Add at least one valid sale item.', 'error');
@@ -760,8 +773,17 @@
                     </select>
                 </div>
                 <div>
-                    <label>Quantity</label>
-                    <input name="quantity" type="number" min="1" step="1" value="${sanitize(defaultItem.quantity || 1)}" required>
+                    <label>Order Unit</label>
+                    <select name="order_unit" required>
+                        <option value="piece" ${defaultItem.order_unit === 'piece' ? 'selected' : ''}>Piece</option>
+                        <option value="case" ${defaultItem.order_unit === 'case' ? 'selected' : ''}>Full Case</option>
+                        <option value="half_case" ${defaultItem.order_unit === 'half_case' ? 'selected' : ''}>Half Case</option>
+                        <option value="quarter_case" ${defaultItem.order_unit === 'quarter_case' ? 'selected' : ''}>Quarter Case</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Order Qty</label>
+                    <input name="ordered_qty" type="number" min="1" step="1" value="${sanitize(defaultItem.ordered_qty || 1)}" required>
                 </div>
                 <button class="btn btn-danger btn-sm" type="button" data-action="remove-sale-item">
                     <i data-lucide="minus"></i>
@@ -790,7 +812,7 @@
                                 <td>#${sanitize(sale.id)}</td>
                                 <td>${sanitize(formatDate(sale.created_at))}</td>
                                 <td>${sanitize(sale.customer_name)}</td>
-                                <td>${sanitize(sale.total_items)}</td>
+                                <td>${sanitize(sale.total_items)} pcs</td>
                                 <td>${toCurrency(sale.total_amount)}</td>
                                 <td>${buildStatusChip(sale.payment_type)}</td>
                                 <td>${buildStatusChip(sale.status)}</td>
@@ -1110,6 +1132,155 @@
         }
 
         renderUsers();
+    }
+
+    function initDriversModule() {
+        const tableBody = document.querySelector('#driversTable tbody');
+        const form = document.getElementById('driverForm');
+        const modalTitle = document.getElementById('driverModalTitle');
+
+        if (!(tableBody instanceof HTMLElement) || !(form instanceof HTMLFormElement)) {
+            return;
+        }
+
+        document.querySelector('[data-open-modal="driverModal"]')?.addEventListener('click', () => {
+            form.reset();
+            setFormValue(form, 'id', '');
+            setFormValue(form, 'status', 'active');
+            if (modalTitle) {
+                modalTitle.textContent = 'Add Driver';
+            }
+        });
+
+        initializeActionButtons(tableBody, {
+            'edit-driver': (button) => {
+                setFormValue(form, 'id', button.getAttribute('data-id') || '');
+                setFormValue(form, 'full_name', button.getAttribute('data-name') || '');
+                setFormValue(form, 'phone', button.getAttribute('data-phone') || '');
+                setFormValue(form, 'license_no', button.getAttribute('data-license') || '');
+                setFormValue(form, 'vehicle_assigned', button.getAttribute('data-vehicle') || '');
+                setFormValue(form, 'status', button.getAttribute('data-status') || 'active');
+                setFormValue(form, 'hired_date', button.getAttribute('data-hired-date') || '');
+                setFormValue(form, 'notes', button.getAttribute('data-notes') || '');
+
+                if (modalTitle) {
+                    modalTitle.textContent = 'Edit Driver';
+                }
+
+                openModal('driverModal');
+            },
+            'delete-driver': async (button) => {
+                const id = Number(button.getAttribute('data-id') || 0);
+                if (!id) {
+                    return;
+                }
+
+                const okay = window.confirm('Delete this driver record?');
+                if (!okay) {
+                    return;
+                }
+
+                try {
+                    await request('api/driver_api.php', {
+                        method: 'DELETE',
+                        data: { id },
+                    });
+                    showToast('Driver deleted successfully.');
+                    await renderDrivers();
+                } catch (error) {
+                    showToast(error.message, 'error');
+                }
+            },
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            if (!form.reportValidity()) {
+                return;
+            }
+
+            const formData = new FormData(form);
+            const payload = {
+                id: formData.get('id') ? Number(formData.get('id')) : undefined,
+                full_name: String(formData.get('full_name') || '').trim(),
+                phone: String(formData.get('phone') || '').trim(),
+                license_no: String(formData.get('license_no') || '').trim(),
+                vehicle_assigned: String(formData.get('vehicle_assigned') || '').trim(),
+                status: String(formData.get('status') || 'active'),
+                hired_date: String(formData.get('hired_date') || ''),
+                notes: String(formData.get('notes') || '').trim(),
+            };
+
+            try {
+                await request('api/driver_api.php', {
+                    method: payload.id ? 'PUT' : 'POST',
+                    data: payload,
+                });
+
+                showToast(`Driver ${payload.id ? 'updated' : 'added'} successfully.`);
+                closeModal(document.getElementById('driverModal'));
+                form.reset();
+                await renderDrivers();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        });
+
+        async function renderDrivers() {
+            try {
+                const response = await request('api/driver_api.php');
+                const drivers = Array.isArray(response.data) ? response.data : [];
+
+                if (drivers.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="8" class="empty-cell">No drivers found.</td></tr>';
+                    return;
+                }
+
+                tableBody.innerHTML = drivers
+                    .map((driver) => {
+                        const hiredDate = String(driver.hired_date || '').slice(0, 10);
+                        return `
+                            <tr>
+                                <td>#${sanitize(driver.id)}</td>
+                                <td>${sanitize(driver.full_name)}</td>
+                                <td>${sanitize(driver.phone)}</td>
+                                <td>${sanitize(driver.license_no)}</td>
+                                <td>${sanitize(driver.vehicle_assigned || '-')}</td>
+                                <td>${sanitize(hiredDate || '-')}</td>
+                                <td>${buildStatusChip(driver.status)}</td>
+                                <td>
+                                    <div class="inline-actions">
+                                        <button class="btn btn-ghost btn-sm" type="button"
+                                            data-action="edit-driver"
+                                            data-id="${sanitize(driver.id)}"
+                                            data-name="${sanitize(driver.full_name)}"
+                                            data-phone="${sanitize(driver.phone)}"
+                                            data-license="${sanitize(driver.license_no)}"
+                                            data-vehicle="${sanitize(driver.vehicle_assigned || '')}"
+                                            data-status="${sanitize(driver.status)}"
+                                            data-hired-date="${sanitize(hiredDate)}"
+                                            data-notes="${sanitize(driver.notes || '')}"
+                                        >
+                                            <i data-lucide="pencil"></i>Edit
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" type="button" data-action="delete-driver" data-id="${sanitize(driver.id)}">
+                                            <i data-lucide="trash-2"></i>Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    })
+                    .join('');
+
+                refreshIcons();
+            } catch (error) {
+                tableBody.innerHTML = `<tr><td colspan="8" class="empty-cell">${sanitize(error.message)}</td></tr>`;
+            }
+        }
+
+        renderDrivers();
     }
 
     function setFormValue(form, name, value) {

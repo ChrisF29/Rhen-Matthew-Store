@@ -21,7 +21,14 @@ try {
             }
 
             $itemStatement = $db->prepare(
-                'SELECT si.id, si.product_id, p.name AS product_name, si.quantity, si.price, si.subtotal
+                'SELECT si.id,
+                        si.product_id,
+                        p.name AS product_name,
+                        COALESCE(si.ordered_qty, si.quantity) AS ordered_qty,
+                        COALESCE(si.order_unit, "piece") AS order_unit,
+                        COALESCE(si.base_units, si.quantity) AS base_units,
+                        si.price,
+                        si.subtotal
                  FROM sales_items si
                  INNER JOIN products p ON p.id = si.product_id
                  WHERE si.sale_id = :sale_id'
@@ -39,7 +46,7 @@ try {
                     s.payment_type,
                     s.status,
                     s.created_at,
-                    COALESCE(SUM(si.quantity), 0) AS total_items
+                    COALESCE(SUM(COALESCE(si.base_units, si.quantity)), 0) AS total_items
              FROM sales s
              LEFT JOIN sales_items si ON si.sale_id = s.id
              GROUP BY s.id
@@ -71,8 +78,16 @@ try {
 
         $db->beginTransaction();
 
-        $productStatement = $db->prepare('SELECT id, name, price, stock_quantity FROM products WHERE id = :id LIMIT 1 FOR UPDATE');
+        $productStatement = $db->prepare(
+            'SELECT id, name, price, stock_quantity, pieces_per_case
+             FROM products
+             WHERE id = :id
+             LIMIT 1 FOR UPDATE'
+        );
+
         $resolvedItems = [];
+        $requiredByProduct = [];
+        $productsById = [];
         $totalAmount = 0.0;
 
         foreach ($normalizedItems as $item) {
@@ -87,24 +102,39 @@ try {
                 ], 404);
             }
 
-            if ((int) $product['stock_quantity'] < $item['quantity']) {
-                $db->rollBack();
-                json_response([
-                    'success' => false,
-                    'message' => sprintf('Insufficient stock for %s.', (string) $product['name']),
-                ], 422);
-            }
+            $piecesPerCase = (int) ($product['pieces_per_case'] ?? 24);
+            $baseUnits = calculate_base_units($item['ordered_qty'], $item['order_unit'], $piecesPerCase);
 
             $linePrice = (float) $product['price'];
-            $lineSubtotal = $linePrice * $item['quantity'];
+            $lineSubtotal = $linePrice * $baseUnits;
             $totalAmount += $lineSubtotal;
 
             $resolvedItems[] = [
                 'product_id' => (int) $product['id'],
-                'quantity' => $item['quantity'],
+                'ordered_qty' => $item['ordered_qty'],
+                'order_unit' => $item['order_unit'],
+                'base_units' => $baseUnits,
                 'price' => $linePrice,
                 'subtotal' => $lineSubtotal,
             ];
+
+            $productId = (int) $product['id'];
+            if (!isset($requiredByProduct[$productId])) {
+                $requiredByProduct[$productId] = 0;
+            }
+            $requiredByProduct[$productId] += $baseUnits;
+            $productsById[$productId] = $product;
+        }
+
+        foreach ($requiredByProduct as $productId => $requiredUnits) {
+            $availableStock = (int) ($productsById[$productId]['stock_quantity'] ?? 0);
+            if ($availableStock < $requiredUnits) {
+                $db->rollBack();
+                json_response([
+                    'success' => false,
+                    'message' => sprintf('Insufficient stock for %s.', (string) $productsById[$productId]['name']),
+                ], 422);
+            }
         }
 
         $status = $paymentType === 'cash' ? 'paid' : 'pending';
@@ -123,8 +153,8 @@ try {
         $saleId = (int) $db->lastInsertId();
 
         $insertItem = $db->prepare(
-            'INSERT INTO sales_items (sale_id, product_id, quantity, price, subtotal)
-             VALUES (:sale_id, :product_id, :quantity, :price, :subtotal)'
+              'INSERT INTO sales_items (sale_id, product_id, quantity, price, subtotal, ordered_qty, order_unit, base_units)
+               VALUES (:sale_id, :product_id, :quantity, :price, :subtotal, :ordered_qty, :order_unit, :base_units)'
         );
 
         $insertInventory = $db->prepare(
@@ -136,12 +166,15 @@ try {
             $insertItem->execute([
                 'sale_id' => $saleId,
                 'product_id' => $resolvedItem['product_id'],
-                'quantity' => $resolvedItem['quantity'],
+                'quantity' => $resolvedItem['base_units'],
                 'price' => $resolvedItem['price'],
                 'subtotal' => $resolvedItem['subtotal'],
+                'ordered_qty' => $resolvedItem['ordered_qty'],
+                'order_unit' => $resolvedItem['order_unit'],
+                'base_units' => $resolvedItem['base_units'],
             ]);
 
-            $stockUpdated = adjust_product_stock($db, $resolvedItem['product_id'], -$resolvedItem['quantity']);
+            $stockUpdated = adjust_product_stock($db, $resolvedItem['product_id'], -$resolvedItem['base_units']);
             if (!$stockUpdated) {
                 $db->rollBack();
                 json_response([
@@ -152,7 +185,7 @@ try {
 
             $insertInventory->execute([
                 'product_id' => $resolvedItem['product_id'],
-                'quantity' => -$resolvedItem['quantity'],
+                'quantity' => -$resolvedItem['base_units'],
                 'type' => 'out',
                 'notes' => 'Sale #' . $saleId,
             ]);
@@ -230,7 +263,11 @@ try {
             json_response(['success' => false, 'message' => 'Sale not found.'], 404);
         }
 
-        $itemStatement = $db->prepare('SELECT product_id, quantity FROM sales_items WHERE sale_id = :sale_id');
+        $itemStatement = $db->prepare(
+            'SELECT product_id, COALESCE(base_units, quantity) AS base_units
+             FROM sales_items
+             WHERE sale_id = :sale_id'
+        );
         $itemStatement->execute(['sale_id' => $id]);
         $items = $itemStatement->fetchAll();
 
@@ -241,7 +278,7 @@ try {
 
         foreach ($items as $item) {
             $productId = (int) $item['product_id'];
-            $quantity = (int) $item['quantity'];
+            $quantity = (int) $item['base_units'];
 
             $stockUpdated = adjust_product_stock($db, $productId, $quantity);
             if (!$stockUpdated) {
@@ -289,30 +326,64 @@ function normalize_sale_items(array $items): array
         }
 
         $productId = (int) ($item['product_id'] ?? 0);
-        $quantity = (int) ($item['quantity'] ?? 0);
+        $orderedQty = (int) ($item['ordered_qty'] ?? ($item['quantity'] ?? 0));
+        $orderUnit = (string) ($item['order_unit'] ?? 'piece');
 
-        if ($productId <= 0 || $quantity <= 0) {
+        if (!in_array($orderUnit, ['piece', 'case', 'half_case', 'quarter_case'], true)) {
+            json_response(['success' => false, 'message' => 'Invalid order unit in sale items.'], 422);
+        }
+
+        if ($productId <= 0 || $orderedQty <= 0) {
             continue;
         }
 
-        if (!isset($grouped[$productId])) {
-            $grouped[$productId] = 0;
+        $groupKey = $productId . '|' . $orderUnit;
+
+        if (!isset($grouped[$groupKey])) {
+            $grouped[$groupKey] = [
+                'product_id' => $productId,
+                'ordered_qty' => 0,
+                'order_unit' => $orderUnit,
+            ];
         }
 
-        $grouped[$productId] += $quantity;
+        $grouped[$groupKey]['ordered_qty'] += $orderedQty;
     }
 
     if (count($grouped) === 0) {
         json_response(['success' => false, 'message' => 'Please provide valid sale items.'], 422);
     }
 
-    $normalized = [];
-    foreach ($grouped as $productId => $quantity) {
-        $normalized[] = [
-            'product_id' => (int) $productId,
-            'quantity' => (int) $quantity,
-        ];
+    return array_values($grouped);
+}
+
+function calculate_base_units(int $orderedQty, string $orderUnit, int $piecesPerCase): int
+{
+    if ($orderedQty <= 0) {
+        json_response(['success' => false, 'message' => 'Order quantity must be at least 1.'], 422);
     }
 
-    return $normalized;
+    if ($piecesPerCase <= 0) {
+        json_response(['success' => false, 'message' => 'Product pieces-per-case must be at least 1.'], 422);
+    }
+
+    if ($orderUnit === 'piece') {
+        return $orderedQty;
+    }
+
+    if ($orderUnit === 'case') {
+        return $orderedQty * $piecesPerCase;
+    }
+
+    $divisor = $orderUnit === 'half_case' ? 2 : 4;
+    $numerator = $orderedQty * $piecesPerCase;
+
+    if ($numerator % $divisor !== 0) {
+        json_response([
+            'success' => false,
+            'message' => 'Case conversion produced a fractional piece count. Please adjust pieces-per-case.',
+        ], 422);
+    }
+
+    return intdiv($numerator, $divisor);
 }

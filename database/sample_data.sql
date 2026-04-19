@@ -3,6 +3,30 @@
 
 USE rhen_matthew_store;
 
+CREATE TABLE IF NOT EXISTS drivers (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(140) NOT NULL,
+    phone VARCHAR(40) NOT NULL,
+    license_no VARCHAR(80) NOT NULL,
+    vehicle_assigned VARCHAR(140) NULL,
+    status ENUM('active', 'on_leave', 'inactive') NOT NULL DEFAULT 'active',
+    hired_date DATE NOT NULL,
+    notes VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_drivers_license (license_no),
+    INDEX idx_drivers_status_hired (status, hired_date),
+    INDEX idx_drivers_name (full_name)
+) ENGINE=InnoDB;
+
+ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS pieces_per_case INT UNSIGNED NOT NULL DEFAULT 24 AFTER price;
+
+ALTER TABLE sales_items
+    ADD COLUMN IF NOT EXISTS ordered_qty INT UNSIGNED NOT NULL DEFAULT 1 AFTER quantity,
+    ADD COLUMN IF NOT EXISTS order_unit ENUM('piece', 'case', 'half_case', 'quarter_case') NOT NULL DEFAULT 'piece' AFTER ordered_qty,
+    ADD COLUMN IF NOT EXISTS base_units INT UNSIGNED NOT NULL DEFAULT 0 AFTER order_unit;
+
 START TRANSACTION;
 
 -- NOTE:
@@ -13,6 +37,7 @@ DELETE FROM sales_items;
 DELETE FROM inventory;
 DELETE FROM sales;
 DELETE FROM deliveries;
+DELETE FROM drivers;
 DELETE FROM products;
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -20,6 +45,7 @@ ALTER TABLE sales_items AUTO_INCREMENT = 1;
 ALTER TABLE inventory AUTO_INCREMENT = 1;
 ALTER TABLE sales AUTO_INCREMENT = 1;
 ALTER TABLE deliveries AUTO_INCREMENT = 1;
+ALTER TABLE drivers AUTO_INCREMENT = 1;
 ALTER TABLE products AUTO_INCREMENT = 1;
 
 -- Keep admin from schema.sql and add two sample staff users.
@@ -32,6 +58,13 @@ VALUES
 ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     role = VALUES(role);
+
+INSERT INTO drivers (id, full_name, phone, license_no, vehicle_assigned, status, hired_date, notes, created_at, updated_at)
+VALUES
+    (1, 'Ramon Villanueva', '09171234567', 'N04-12-123456', 'Truck #1', 'active', '2024-01-10', 'Primary route: San Jose and Lipa', NOW() - INTERVAL 200 DAY, NOW() - INTERVAL 2 DAY),
+    (2, 'Joel Fernandez', '09181239876', 'N03-11-654321', 'Truck #2', 'active', '2024-03-22', 'Handles long-haul delivery schedules', NOW() - INTERVAL 150 DAY, NOW() - INTERVAL 1 DAY),
+    (3, 'Dennis Ramos', '09192345678', 'N01-09-745812', 'Van #1', 'on_leave', '2024-07-18', 'Temporary medical leave', NOW() - INTERVAL 100 DAY, NOW() - INTERVAL 8 DAY),
+    (4, 'Mark de Leon', '09201234567', 'N09-14-889900', 'Reserve Unit', 'inactive', '2023-11-05', 'Previously assigned to weekend dispatch', NOW() - INTERVAL 260 DAY, NOW() - INTERVAL 20 DAY);
 
 INSERT INTO products (id, name, category, size, price, stock_quantity, created_at, updated_at)
 VALUES
@@ -87,6 +120,11 @@ VALUES
     (6, 3, 5, 18.00, 90.00),
     (6, 4, 4, 17.00, 68.00),
     (6, 10, 2, 25.00, 50.00);
+
+UPDATE sales_items
+SET ordered_qty = quantity,
+    order_unit = 'piece',
+    base_units = quantity;
 
 -- Inventory ledger entries: stock-in batch plus aggregated sales-out movement.
 INSERT INTO inventory (product_id, quantity, type, notes, created_at)
