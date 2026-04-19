@@ -5,6 +5,7 @@ $stats = [
     'products' => 0,
     'low_stock' => 0,
     'daily_sales' => 0.0,
+    'utang_balance' => 0.0,
     'pending_deliveries' => 0,
 ];
 
@@ -14,7 +15,8 @@ $recentSales = [];
 try {
     $stats['products'] = (int) $db->query('SELECT COUNT(*) FROM products')->fetchColumn();
     $stats['low_stock'] = (int) $db->query('SELECT COUNT(*) FROM products WHERE stock_quantity <= 10')->fetchColumn();
-    $stats['daily_sales'] = (float) $db->query('SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE DATE(created_at) = CURDATE()')->fetchColumn();
+    $stats['daily_sales'] = (float) $db->query("SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE DATE(created_at) = CURDATE() AND status = 'paid'")->fetchColumn();
+    $stats['utang_balance'] = (float) $db->query("SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE status = 'pending'")->fetchColumn();
     $stats['pending_deliveries'] = (int) $db->query("SELECT COUNT(*) FROM deliveries WHERE status IN ('pending', 'in_transit')")->fetchColumn();
 
     $lowStockStatement = $db->query(
@@ -73,10 +75,18 @@ try {
 
         <article class="stat-card success">
             <div>
-                <p class="stat-label">Daily Sales</p>
+                <p class="stat-label">Daily Paid Sales</p>
                 <h4>PHP <?= h(number_format($stats['daily_sales'], 2)) ?></h4>
             </div>
             <i data-lucide="wallet"></i>
+        </article>
+
+        <article class="stat-card warning">
+            <div>
+                <p class="stat-label">Utang</p>
+                <h4>PHP <?= h(number_format($stats['utang_balance'], 2)) ?></h4>
+            </div>
+            <i data-lucide="credit-card"></i>
         </article>
 
         <article class="stat-card info">

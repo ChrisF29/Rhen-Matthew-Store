@@ -21,7 +21,7 @@ try {
             json_response(['success' => true, 'data' => $product]);
         }
 
-        $products = $db->query('SELECT * FROM products ORDER BY created_at DESC, id DESC')->fetchAll();
+        $products = $db->query('SELECT * FROM products ORDER BY name ASC, size ASC, id ASC')->fetchAll();
         json_response(['success' => true, 'data' => $products]);
     }
 
