@@ -7,6 +7,7 @@ $navItems = [
     'products' => ['label' => 'Products', 'icon' => 'package'],
     'inventory' => ['label' => 'Inventory', 'icon' => 'boxes'],
     'sales' => ['label' => 'Sales', 'icon' => 'receipt-text'],
+    'customers' => ['label' => 'Customers', 'icon' => 'contact'],
     'deliveries' => ['label' => 'Deliveries', 'icon' => 'truck'],
     'drivers' => ['label' => 'Drivers', 'icon' => 'car'],
     'users' => ['label' => 'Users', 'icon' => 'users-round'],

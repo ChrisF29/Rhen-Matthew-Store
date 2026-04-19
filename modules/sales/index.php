@@ -51,7 +51,8 @@
                 <div class="form-grid two-col">
                     <div>
                         <label for="saleCustomer">Customer Name</label>
-                        <input id="saleCustomer" name="customer_name" type="text" placeholder="Sari-sari Store" required>
+                        <input id="saleCustomer" name="customer_name" type="text" placeholder="Sari-sari Store" list="saleCustomerList" required>
+                        <datalist id="saleCustomerList"></datalist>
                     </div>
                     <div>
                         <label for="salePaymentType">Payment Type</label>

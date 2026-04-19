@@ -42,6 +42,17 @@ CREATE TABLE IF NOT EXISTS inventory (
     INDEX idx_inventory_product_created (product_id, created_at)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS customers (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(140) NOT NULL,
+    phone VARCHAR(40) NULL,
+    address VARCHAR(255) NULL,
+    notes VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_customers_name (name)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS sales (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     customer_name VARCHAR(140) NOT NULL,

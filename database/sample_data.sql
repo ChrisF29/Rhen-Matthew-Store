@@ -19,6 +19,17 @@ CREATE TABLE IF NOT EXISTS drivers (
     INDEX idx_drivers_name (full_name)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS customers (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(140) NOT NULL,
+    phone VARCHAR(40) NULL,
+    address VARCHAR(255) NULL,
+    notes VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_customers_name (name)
+) ENGINE=InnoDB;
+
 ALTER TABLE products
     ADD COLUMN IF NOT EXISTS pieces_per_case INT UNSIGNED NOT NULL DEFAULT 24 AFTER price;
 
@@ -38,6 +49,7 @@ DELETE FROM inventory;
 DELETE FROM sales;
 DELETE FROM deliveries;
 DELETE FROM drivers;
+DELETE FROM customers;
 DELETE FROM products;
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -46,6 +58,7 @@ ALTER TABLE inventory AUTO_INCREMENT = 1;
 ALTER TABLE sales AUTO_INCREMENT = 1;
 ALTER TABLE deliveries AUTO_INCREMENT = 1;
 ALTER TABLE drivers AUTO_INCREMENT = 1;
+ALTER TABLE customers AUTO_INCREMENT = 1;
 ALTER TABLE products AUTO_INCREMENT = 1;
 
 -- Keep admin from schema.sql and add two sample staff users.
@@ -65,6 +78,15 @@ VALUES
     (2, 'Joel Fernandez', '09181239876', 'N03-11-654321', 'Truck #2', 'active', '2024-03-22', 'Handles long-haul delivery schedules', NOW() - INTERVAL 150 DAY, NOW() - INTERVAL 1 DAY),
     (3, 'Dennis Ramos', '09192345678', 'N01-09-745812', 'Van #1', 'on_leave', '2024-07-18', 'Temporary medical leave', NOW() - INTERVAL 100 DAY, NOW() - INTERVAL 8 DAY),
     (4, 'Mark de Leon', '09201234567', 'N09-14-889900', 'Reserve Unit', 'inactive', '2023-11-05', 'Previously assigned to weekend dispatch', NOW() - INTERVAL 260 DAY, NOW() - INTERVAL 20 DAY);
+
+INSERT INTO customers (id, name, phone, address, notes, created_at, updated_at)
+VALUES
+    (1, 'Maria''s Sari-Sari Store', '09174561234', 'Purok 1, San Jose, Batangas', 'Regular weekly reorder', NOW() - INTERVAL 180 DAY, NOW() - INTERVAL 4 DAY),
+    (2, 'Barangay Canteen', '09181230021', 'Barangay Hall Compound, Batangas', 'Usually buys on account', NOW() - INTERVAL 165 DAY, NOW() - INTERVAL 2 DAY),
+    (3, 'J&L Mini Mart', '09221234456', 'National Road, Lipa City', 'Mixed case and piece orders', NOW() - INTERVAL 140 DAY, NOW() - INTERVAL 1 DAY),
+    (4, 'Purok 5 Variety Store', '09199887766', 'Purok 5, Ibaan, Batangas', NULL, NOW() - INTERVAL 130 DAY, NOW() - INTERVAL 5 DAY),
+    (5, 'Lakeside Eatery', '09061234567', 'Lakeside Street, Tanauan', 'Cash purchases only', NOW() - INTERVAL 120 DAY, NOW() - INTERVAL 6 DAY),
+    (6, 'ABC Tindahan', '09170001122', 'Market Area, Sto. Tomas', NULL, NOW() - INTERVAL 90 DAY, NOW() - INTERVAL 1 DAY);
 
 INSERT INTO products (id, name, category, size, price, stock_quantity, created_at, updated_at)
 VALUES

@@ -6,7 +6,7 @@ Web-based Inventory Management System (IMS) scaffold for a softdrinks supplier, 
 
 - Session-based authentication (login, register, logout)
 - Modular dashboard layout (sidebar + top navbar)
-- Core modules: Dashboard, Products, Inventory, Sales, Deliveries, Users
+- Core modules: Dashboard, Products, Inventory, Sales, Customers, Deliveries, Drivers, Users
 - Reusable PHP includes for shared UI and configuration
 - API-first CRUD endpoints using prepared statements
 - Transaction-safe stock updates on inventory and sales operations
@@ -39,14 +39,18 @@ Web-based Inventory Management System (IMS) scaffold for a softdrinks supplier, 
 |   |-- products/index.php
 |   |-- inventory/index.php
 |   |-- sales/index.php
+|   |-- customers/index.php
 |   |-- deliveries/index.php
+|   |-- drivers/index.php
 |   `-- users/index.php
 |
 |-- api/
 |   |-- product_api.php
 |   |-- inventory_api.php
 |   |-- sales_api.php
+|   |-- customer_api.php
 |   |-- user_api.php
+|   |-- driver_api.php
 |   `-- delivery_api.php
 |
 |-- database/
@@ -81,7 +85,9 @@ Web-based Inventory Management System (IMS) scaffold for a softdrinks supplier, 
 - `GET/POST/PUT/DELETE api/product_api.php`
 - `GET/POST/DELETE api/inventory_api.php`
 - `GET/POST/PUT/DELETE api/sales_api.php`
+- `GET/POST/PUT/DELETE api/customer_api.php`
 - `GET/POST/PUT/DELETE api/user_api.php`
+- `GET/POST/PUT/DELETE api/driver_api.php`
 - `GET/POST/PUT/DELETE api/delivery_api.php`
 
 All API routes require authenticated session access.

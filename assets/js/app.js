@@ -1,6 +1,7 @@
 (() => {
     const state = {
         productCatalog: [],
+        customerCatalog: [],
         toastTimer: null,
     };
 
@@ -8,6 +9,7 @@
         products: initProductsModule,
         inventory: initInventoryModule,
         sales: initSalesModule,
+        customers: initCustomersModule,
         deliveries: initDeliveriesModule,
         drivers: initDriversModule,
         users: initUsersModule,
@@ -276,6 +278,28 @@
         const response = await request('api/product_api.php');
         state.productCatalog = Array.isArray(response.data) ? response.data : [];
         return state.productCatalog;
+    }
+
+    async function loadCustomerCatalog() {
+        const response = await request('api/customer_api.php');
+        state.customerCatalog = Array.isArray(response.data) ? response.data : [];
+        return state.customerCatalog;
+    }
+
+    function renderCustomerNameSuggestions(datalistElement) {
+        if (!(datalistElement instanceof HTMLDataListElement)) {
+            return;
+        }
+
+        const uniqueNames = [...new Set(
+            state.customerCatalog
+                .map((customer) => String(customer?.name || '').trim())
+                .filter((name) => name !== '')
+        )];
+
+        datalistElement.innerHTML = uniqueNames
+            .map((name) => `<option value="${sanitize(name)}"></option>`)
+            .join('');
     }
 
     function getProductOptionsHtml(selectedProductId = '') {
@@ -659,20 +683,31 @@
         const form = document.getElementById('saleForm');
         const itemsContainer = document.getElementById('saleItemsContainer');
         const addItemButton = document.getElementById('addSaleItemBtn');
+        const customerSuggestions = document.getElementById('saleCustomerList');
 
         if (!(tableBody instanceof HTMLElement) || !(form instanceof HTMLFormElement) || !(itemsContainer instanceof HTMLElement)) {
             return;
         }
 
+        const hydrateSalesLookups = async () => {
+            await loadProductCatalog();
+            try {
+                await loadCustomerCatalog();
+            } catch (error) {
+                state.customerCatalog = [];
+            }
+            renderCustomerNameSuggestions(customerSuggestions);
+        };
+
         const resetForm = async () => {
             form.reset();
             itemsContainer.innerHTML = '';
-            await loadProductCatalog();
+            await hydrateSalesLookups();
             addItemRow();
         };
 
-        document.querySelector('[data-open-modal="saleModal"]')?.addEventListener('click', () => {
-            resetForm();
+        document.querySelector('[data-open-modal="saleModal"]')?.addEventListener('click', async () => {
+            await resetForm();
         });
 
         addItemButton?.addEventListener('click', () => {
@@ -875,10 +910,146 @@
         }
 
         (async () => {
-            await loadProductCatalog();
+            await hydrateSalesLookups();
             addItemRow();
             await renderSales();
         })();
+    }
+
+    function initCustomersModule() {
+        const tableBody = document.querySelector('#customersTable tbody');
+        const form = document.getElementById('customerForm');
+        const modalTitle = document.getElementById('customerModalTitle');
+
+        if (!(tableBody instanceof HTMLElement) || !(form instanceof HTMLFormElement)) {
+            return;
+        }
+
+        document.querySelector('[data-open-modal="customerModal"]')?.addEventListener('click', () => {
+            form.reset();
+            setFormValue(form, 'id', '');
+            if (modalTitle) {
+                modalTitle.textContent = 'Add Customer';
+            }
+        });
+
+        initializeActionButtons(tableBody, {
+            'edit-customer': (button) => {
+                setFormValue(form, 'id', button.getAttribute('data-id') || '');
+                setFormValue(form, 'name', button.getAttribute('data-name') || '');
+                setFormValue(form, 'phone', button.getAttribute('data-phone') || '');
+                setFormValue(form, 'address', button.getAttribute('data-address') || '');
+                setFormValue(form, 'notes', button.getAttribute('data-notes') || '');
+
+                if (modalTitle) {
+                    modalTitle.textContent = 'Edit Customer';
+                }
+
+                openModal('customerModal');
+            },
+            'delete-customer': async (button) => {
+                const id = Number(button.getAttribute('data-id') || 0);
+                if (!id) {
+                    return;
+                }
+
+                const okay = window.confirm('Delete this customer record?');
+                if (!okay) {
+                    return;
+                }
+
+                try {
+                    await request('api/customer_api.php', {
+                        method: 'DELETE',
+                        data: { id },
+                    });
+                    showToast('Customer deleted successfully.');
+                    await renderCustomers();
+                } catch (error) {
+                    showToast(error.message, 'error');
+                }
+            },
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            if (!form.reportValidity()) {
+                return;
+            }
+
+            const formData = new FormData(form);
+            const payload = {
+                id: formData.get('id') ? Number(formData.get('id')) : undefined,
+                name: String(formData.get('name') || '').trim(),
+                phone: String(formData.get('phone') || '').trim(),
+                address: String(formData.get('address') || '').trim(),
+                notes: String(formData.get('notes') || '').trim(),
+            };
+
+            try {
+                await request('api/customer_api.php', {
+                    method: payload.id ? 'PUT' : 'POST',
+                    data: payload,
+                });
+
+                showToast(`Customer ${payload.id ? 'updated' : 'created'} successfully.`);
+                closeModal(document.getElementById('customerModal'));
+                form.reset();
+                await renderCustomers();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        });
+
+        async function renderCustomers() {
+            try {
+                const response = await request('api/customer_api.php');
+                const customers = Array.isArray(response.data) ? response.data : [];
+
+                if (customers.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="6" class="empty-cell">No customers found.</td></tr>';
+                    return;
+                }
+
+                tableBody.innerHTML = customers
+                    .map((customer) => {
+                        return `
+                            <tr>
+                                <td>#${sanitize(customer.id)}</td>
+                                <td>${sanitize(customer.name)}</td>
+                                <td>${sanitize(customer.phone || '-')}</td>
+                                <td>${sanitize(customer.address || '-')}</td>
+                                <td>${sanitize(formatDate(customer.created_at))}</td>
+                                <td>
+                                    <div class="inline-actions">
+                                        <button class="btn btn-ghost btn-sm" type="button"
+                                            data-action="edit-customer"
+                                            data-id="${sanitize(customer.id)}"
+                                            data-name="${sanitize(customer.name)}"
+                                            data-phone="${sanitize(customer.phone || '')}"
+                                            data-address="${sanitize(customer.address || '')}"
+                                            data-notes="${sanitize(customer.notes || '')}"
+                                        >
+                                            <i data-lucide="pencil"></i>Edit
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" type="button" data-action="delete-customer" data-id="${sanitize(customer.id)}">
+                                            <i data-lucide="trash-2"></i>Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    })
+                    .join('');
+
+                refreshIcons();
+            } catch (error) {
+                tableBody.innerHTML = `<tr><td colspan="6" class="empty-cell">${sanitize(error.message)}</td></tr>`;
+            }
+        }
+
+        renderCustomers();
     }
 
     function initDeliveriesModule() {
