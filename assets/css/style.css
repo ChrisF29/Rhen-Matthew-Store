@@ -37,6 +37,12 @@ body {
     background: linear-gradient(160deg, var(--bg) 0%, #f7faf6 45%, var(--bg-soft) 100%);
 }
 
+img,
+svg {
+    max-width: 100%;
+    height: auto;
+}
+
 h1,
 h2,
 h3,
@@ -199,6 +205,8 @@ a {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .user-greeting {
@@ -346,6 +354,7 @@ a {
     padding: 0.76rem 0.88rem;
     border-bottom: 1px solid var(--line);
     font-size: 0.9rem;
+    white-space: nowrap;
 }
 
 .data-table th {
@@ -539,6 +548,7 @@ textarea:focus {
     justify-content: flex-end;
     gap: 0.6rem;
     margin-top: 0.45rem;
+    flex-wrap: wrap;
 }
 
 .sale-items-head {
@@ -749,12 +759,34 @@ textarea:focus {
 }
 
 @media (max-width: 900px) {
+    body.sidebar-open {
+        overflow: hidden;
+    }
+
+    .page-grid::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: rgba(8, 14, 10, 0.36);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.22s ease;
+        z-index: 18;
+    }
+
+    body.sidebar-open .page-grid::after {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
     .sidebar {
         position: fixed;
         left: 0;
+        width: min(84vw, 300px);
         transform: translateX(-110%);
         transition: transform 0.22s ease;
         z-index: 22;
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
     }
 
     body.sidebar-open .sidebar {
@@ -778,14 +810,36 @@ textarea:focus {
         display: none;
     }
 
+    .topbar-actions {
+        margin-left: auto;
+    }
+
     .form-grid.two-col {
         grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 640px) {
+    .module-main {
+        padding: 0.85rem;
+    }
+
     .module-toolbar {
         flex-direction: column;
+    }
+
+    .toolbar-actions {
+        width: 100%;
+    }
+
+    .toolbar-actions .btn {
+        flex: 1 1 100%;
+    }
+
+    .panel-head {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
     }
 
     .modal-card,
@@ -795,15 +849,92 @@ textarea:focus {
         overflow-y: auto;
     }
 
+    .modal form {
+        padding: 0.85rem;
+    }
+
+    .modal-actions .btn {
+        flex: 1 1 100%;
+    }
+
     .sale-item-row {
         grid-template-columns: 1fr;
+    }
+
+    .sale-items-head {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.4rem;
+    }
+
+    .sale-items-head .btn {
+        width: 100%;
+    }
+
+    .data-table {
+        min-width: 540px;
+    }
+
+    .data-table th,
+    .data-table td {
+        font-size: 0.83rem;
+        padding: 0.62rem 0.68rem;
     }
 
     .topbar-title h2 {
         font-size: 1rem;
     }
 
+    .topbar {
+        flex-wrap: wrap;
+        gap: 0.65rem;
+    }
+
+    .topbar-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
     .stats-grid {
         grid-template-columns: 1fr;
+    }
+
+    .toast {
+        left: 0.75rem;
+        right: 0.75rem;
+        min-width: 0;
+        max-width: none;
+    }
+}
+
+@media (max-width: 440px) {
+    .sidebar {
+        width: 88vw;
+    }
+
+    .topbar-title small {
+        display: none;
+    }
+
+    .topbar-actions .btn {
+        min-width: 2.2rem;
+        width: 2.2rem;
+        padding-left: 0;
+        padding-right: 0;
+        font-size: 0;
+        line-height: 0;
+    }
+
+    .topbar-actions .btn svg {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .data-table {
+        min-width: 500px;
+    }
+
+    .auth-card {
+        padding: 1rem 0.9rem;
     }
 }
