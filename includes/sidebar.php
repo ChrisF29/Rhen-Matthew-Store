@@ -18,7 +18,7 @@ $navItems = [
         </div>
         <div>
             <h1><?= h(APP_NAME) ?></h1>
-            <p>Softdrinks Supplier</p>
+            <p>Softdrinks Distributor</p>
         </div>
     </div>
 

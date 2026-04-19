@@ -7,7 +7,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 date_default_timezone_set('Asia/Manila');
 
-const APP_NAME = 'Rhen Matthew Store IMS';
+const APP_NAME = 'RHEN MATTHEW STORE';
 const DB_HOST = '127.0.0.1';
 const DB_NAME = 'rhen_matthew_store';
 const DB_USER = 'root';

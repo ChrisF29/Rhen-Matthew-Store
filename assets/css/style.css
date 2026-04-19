@@ -824,6 +824,25 @@ textarea:focus {
         padding: 0.85rem;
     }
 
+    .topbar {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.72rem 0.85rem;
+        flex-wrap: nowrap;
+    }
+
+    .topbar-title {
+        min-width: 0;
+        text-align: center;
+        justify-self: center;
+    }
+
+    .topbar-title small {
+        display: none;
+    }
+
     .module-toolbar {
         flex-direction: column;
     }
@@ -883,16 +902,29 @@ textarea:focus {
 
     .topbar-title h2 {
         font-size: 1rem;
-    }
-
-    .topbar {
-        flex-wrap: wrap;
-        gap: 0.65rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .topbar-actions {
-        width: 100%;
+        width: auto;
+        margin-left: 0;
         justify-content: flex-end;
+    }
+
+    .topbar-actions .btn {
+        min-width: 2.2rem;
+        width: 2.2rem;
+        padding-left: 0;
+        padding-right: 0;
+        font-size: 0;
+        line-height: 0;
+    }
+
+    .topbar-actions .btn svg {
+        width: 1rem;
+        height: 1rem;
     }
 
     .stats-grid {
@@ -910,24 +942,6 @@ textarea:focus {
 @media (max-width: 440px) {
     .sidebar {
         width: 88vw;
-    }
-
-    .topbar-title small {
-        display: none;
-    }
-
-    .topbar-actions .btn {
-        min-width: 2.2rem;
-        width: 2.2rem;
-        padding-left: 0;
-        padding-right: 0;
-        font-size: 0;
-        line-height: 0;
-    }
-
-    .topbar-actions .btn svg {
-        width: 1rem;
-        height: 1rem;
     }
 
     .data-table {
