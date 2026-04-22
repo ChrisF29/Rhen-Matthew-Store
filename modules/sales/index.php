@@ -2,7 +2,7 @@
     <div class="module-toolbar">
         <div>
             <h3>Sales</h3>
-            <p>Record customer orders by piece, full case, half case, or quarter case with automatic stock conversion.</p>
+            <p>Record immediate final sales only. For dispatched orders with possible partial take, backload, or cancellation, use Ongoing Deliveries.</p>
         </div>
         <div class="toolbar-actions">
             <button class="btn btn-primary" type="button" data-open-modal="saleModal">
@@ -15,7 +15,7 @@
     <section class="panel">
         <div class="panel-head">
             <h4>Sales Transactions</h4>
-            <span>Auto-deducts piece-level stock per line item</span>
+            <span>Finalized sales only (posted immediately)</span>
         </div>
         <div class="table-wrap">
             <table class="data-table" id="salesTable">
@@ -81,6 +81,50 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div class="modal" id="saleViewModal" aria-hidden="true">
+        <div class="modal-card modal-wide">
+            <div class="modal-head">
+                <h4 id="saleViewTitle">Sale Details</h4>
+                <button class="icon-btn" type="button" data-close-modal aria-label="Close modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <div class="sale-view-body">
+                <div class="sale-view-meta" id="saleViewMeta">
+                    <span class="muted">Select a sale record to view item breakdown.</span>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="data-table" id="saleViewItemsTable">
+                        <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Ordered Qty</th>
+                            <th>Unit</th>
+                            <th>Converted (pcs)</th>
+                            <th>Price</th>
+                            <th>Subtotal</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr><td colspan="6" class="empty-cell">No sale selected.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="sale-view-total">
+                    <span>Total: </span>
+                    <strong id="saleViewGrandTotal">PHP 0.00</strong>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-ghost" type="button" data-close-modal>Close</button>
+                </div>
+            </div>
         </div>
     </div>
 </section>

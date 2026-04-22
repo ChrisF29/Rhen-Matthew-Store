@@ -30,6 +30,38 @@ CREATE TABLE IF NOT EXISTS customers (
     INDEX idx_customers_name (name)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS ongoing_deliveries (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    reference_no VARCHAR(80) NOT NULL,
+    customer_name VARCHAR(140) NOT NULL,
+    payment_type ENUM('cash', 'utang') NOT NULL DEFAULT 'cash',
+    scheduled_date DATE NOT NULL,
+    status ENUM('pending_dispatch', 'in_transit', 'completed', 'cancelled') NOT NULL DEFAULT 'pending_dispatch',
+    notes VARCHAR(255) NULL,
+    sale_id INT UNSIGNED NULL,
+    dispatched_at DATETIME NULL,
+    completed_at DATETIME NULL,
+    cancelled_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_ongoing_deliveries_reference (reference_no),
+    INDEX idx_ongoing_deliveries_status_date (status, scheduled_date)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS ongoing_delivery_items (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ongoing_delivery_id INT UNSIGNED NOT NULL,
+    product_id INT UNSIGNED NOT NULL,
+    ordered_qty INT UNSIGNED NOT NULL,
+    order_unit ENUM('piece', 'case', 'half_case', 'quarter_case') NOT NULL DEFAULT 'piece',
+    loaded_units INT UNSIGNED NOT NULL,
+    delivered_qty INT UNSIGNED NOT NULL DEFAULT 0,
+    delivered_units INT UNSIGNED NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ongoing_delivery_items_order (ongoing_delivery_id),
+    INDEX idx_ongoing_delivery_items_product (product_id)
+) ENGINE=InnoDB;
+
 ALTER TABLE products
     ADD COLUMN IF NOT EXISTS pieces_per_case INT UNSIGNED NOT NULL DEFAULT 24 AFTER price;
 
@@ -47,6 +79,8 @@ SET FOREIGN_KEY_CHECKS = 0;
 DELETE FROM sales_items;
 DELETE FROM inventory;
 DELETE FROM sales;
+DELETE FROM ongoing_delivery_items;
+DELETE FROM ongoing_deliveries;
 DELETE FROM deliveries;
 DELETE FROM drivers;
 DELETE FROM customers;
@@ -56,6 +90,8 @@ SET FOREIGN_KEY_CHECKS = 1;
 ALTER TABLE sales_items AUTO_INCREMENT = 1;
 ALTER TABLE inventory AUTO_INCREMENT = 1;
 ALTER TABLE sales AUTO_INCREMENT = 1;
+ALTER TABLE ongoing_delivery_items AUTO_INCREMENT = 1;
+ALTER TABLE ongoing_deliveries AUTO_INCREMENT = 1;
 ALTER TABLE deliveries AUTO_INCREMENT = 1;
 ALTER TABLE drivers AUTO_INCREMENT = 1;
 ALTER TABLE customers AUTO_INCREMENT = 1;
@@ -181,5 +217,14 @@ VALUES
     ('DLV-2026-004', 'Purok 5 Variety Store', 'Purok 5, Ibaan, Batangas', CURDATE() + INTERVAL 2 DAY, 'pending', NULL, NOW() - INTERVAL 6 HOUR),
     ('DLV-2026-005', 'Lakeside Eatery', 'Lakeside Street, Tanauan', CURDATE() - INTERVAL 3 DAY, 'delivered', NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 4 DAY),
     ('DLV-2026-006', 'ABC Tindahan', 'Market Area, Sto. Tomas', CURDATE() - INTERVAL 2 DAY, 'cancelled', NULL, NOW() - INTERVAL 2 DAY);
+
+INSERT INTO ongoing_deliveries (id, reference_no, customer_name, payment_type, scheduled_date, status, notes, sale_id, dispatched_at, completed_at, cancelled_at, created_at, updated_at)
+VALUES
+    (1, 'ODL-2026-0001', 'Barangay Canteen', 'utang', CURDATE() + INTERVAL 1 DAY, 'pending_dispatch', 'Sample pending dispatch order for workflow testing', NULL, NULL, NULL, NULL, NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR);
+
+INSERT INTO ongoing_delivery_items (ongoing_delivery_id, product_id, ordered_qty, order_unit, loaded_units, delivered_qty, delivered_units, created_at)
+VALUES
+    (1, 1, 2, 'case', 48, 0, 0, NOW() - INTERVAL 1 HOUR),
+    (1, 6, 1, 'half_case', 12, 0, 0, NOW() - INTERVAL 1 HOUR);
 
 COMMIT;

@@ -551,6 +551,44 @@ textarea:focus {
     flex-wrap: wrap;
 }
 
+.sale-view-body {
+    padding: 0.95rem 1rem 1.05rem;
+    display: grid;
+    gap: 0.75rem;
+}
+
+.sale-view-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 1rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: #fbfdf9;
+}
+
+.sale-view-meta span {
+    font-size: 0.84rem;
+    color: var(--ink-soft);
+}
+
+.sale-view-meta strong {
+    color: var(--ink);
+}
+
+.sale-view-total {
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 0.92rem;
+}
+
+.sale-view-total strong {
+    font-size: 1rem;
+    color: var(--primary-dark);
+}
+
 .sale-items-head {
     margin-top: 0.3rem;
     display: flex;
@@ -578,6 +616,33 @@ textarea:focus {
     background: #fbfdf9;
 }
 
+.ongoing-complete-row {
+    grid-template-columns: minmax(260px, 1fr) 160px 120px 120px;
+    align-items: start;
+}
+
+.ongoing-complete-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.ongoing-complete-row > div {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.ongoing-ready-btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    justify-content: center;
+}
+
+.ongoing-ready-col-label {
+    visibility: hidden;
+}
+
 .inline-actions {
     display: flex;
     gap: 0.42rem;
@@ -599,6 +664,7 @@ textarea:focus {
 
 .stock-pill.critical,
 .status-chip.pending,
+.status-chip.pending_dispatch,
 .status-chip.utang,
 .status-chip.in_transit {
     background: rgba(237, 155, 31, 0.15);
@@ -608,6 +674,7 @@ textarea:focus {
 .stock-pill.healthy,
 .status-chip.cash,
 .status-chip.paid,
+.status-chip.completed,
 .status-chip.delivered,
 .status-chip.in {
     background: rgba(31, 141, 85, 0.14);

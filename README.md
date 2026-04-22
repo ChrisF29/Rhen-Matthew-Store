@@ -6,10 +6,11 @@ Web-based Inventory Management System (IMS) scaffold for a softdrinks supplier, 
 
 - Session-based authentication (login, register, logout)
 - Modular dashboard layout (sidebar + top navbar)
-- Core modules: Dashboard, Products, Inventory, Sales, Customers, Deliveries, Drivers, Users
+- Core modules: Dashboard, Products, Inventory, Sales, Ongoing Deliveries, Customers, Deliveries, Drivers, Users
 - Reusable PHP includes for shared UI and configuration
 - API-first CRUD endpoints using prepared statements
 - Transaction-safe stock updates on inventory and sales operations
+- Delivery-first workflow for partial drops/backloads (dispatch then finalize delivered quantities into sales)
 - Responsive modern UI with external CSS and Vanilla JS
 
 ## Tech Stack
@@ -39,6 +40,7 @@ Web-based Inventory Management System (IMS) scaffold for a softdrinks supplier, 
 |   |-- products/index.php
 |   |-- inventory/index.php
 |   |-- sales/index.php
+|   |-- ongoing_deliveries/index.php
 |   |-- customers/index.php
 |   |-- deliveries/index.php
 |   |-- drivers/index.php
@@ -48,6 +50,7 @@ Web-based Inventory Management System (IMS) scaffold for a softdrinks supplier, 
 |   |-- product_api.php
 |   |-- inventory_api.php
 |   |-- sales_api.php
+|   |-- ongoing_delivery_api.php
 |   |-- customer_api.php
 |   |-- user_api.php
 |   |-- driver_api.php
@@ -75,6 +78,11 @@ Web-based Inventory Management System (IMS) scaffold for a softdrinks supplier, 
 5. Open the app at:
 	- `http://localhost/Rhen-Matthew-Store/login.php`
 
+For existing installations, run additional migration scripts as needed:
+
+- `database/add_customers_table.sql`
+- `database/add_ongoing_deliveries_workflow.sql`
+
 ## Default Admin Account
 
 - Email: `admin@store.local`
@@ -85,6 +93,7 @@ Web-based Inventory Management System (IMS) scaffold for a softdrinks supplier, 
 - `GET/POST/PUT/DELETE api/product_api.php`
 - `GET/POST/DELETE api/inventory_api.php`
 - `GET/POST/PUT/DELETE api/sales_api.php`
+- `GET/POST/PUT api/ongoing_delivery_api.php`
 - `GET/POST/PUT/DELETE api/customer_api.php`
 - `GET/POST/PUT/DELETE api/user_api.php`
 - `GET/POST/PUT/DELETE api/driver_api.php`

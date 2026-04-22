@@ -9,6 +9,7 @@
         products: initProductsModule,
         inventory: initInventoryModule,
         sales: initSalesModule,
+        ongoing_deliveries: initOngoingDeliveriesModule,
         customers: initCustomersModule,
         deliveries: initDeliveriesModule,
         drivers: initDriversModule,
@@ -684,10 +685,26 @@
         const itemsContainer = document.getElementById('saleItemsContainer');
         const addItemButton = document.getElementById('addSaleItemBtn');
         const customerSuggestions = document.getElementById('saleCustomerList');
+        const saleViewTitle = document.getElementById('saleViewTitle');
+        const saleViewMeta = document.getElementById('saleViewMeta');
+        const saleViewItemsBody = document.querySelector('#saleViewItemsTable tbody');
+        const saleViewGrandTotal = document.getElementById('saleViewGrandTotal');
 
         if (!(tableBody instanceof HTMLElement) || !(form instanceof HTMLFormElement) || !(itemsContainer instanceof HTMLElement)) {
             return;
         }
+
+        const orderUnitLabels = {
+            piece: 'Piece',
+            case: 'Case',
+            half_case: 'Half Case',
+            quarter_case: 'Quarter Case',
+        };
+
+        const getOrderUnitLabel = (unit) => {
+            const key = String(unit || '').trim();
+            return orderUnitLabels[key] || key || 'Piece';
+        };
 
         const hydrateSalesLookups = async () => {
             await loadProductCatalog();
@@ -734,6 +751,20 @@
         });
 
         initializeActionButtons(tableBody, {
+            'view-sale': async (button) => {
+                const id = Number(button.getAttribute('data-id') || 0);
+                if (!id) {
+                    return;
+                }
+
+                try {
+                    const response = await request(`api/sales_api.php?id=${id}`);
+                    renderSaleDetails(response.data || {});
+                    openModal('saleViewModal');
+                } catch (error) {
+                    showToast(error.message, 'error');
+                }
+            },
             'mark-paid': async (button) => {
                 const id = Number(button.getAttribute('data-id') || 0);
                 if (!id) {
@@ -865,6 +896,64 @@
             refreshIcons();
         }
 
+        function renderSaleDetails(sale) {
+            if (!(saleViewItemsBody instanceof HTMLElement)) {
+                return;
+            }
+
+            const saleId = Number(sale?.id || 0);
+            const customerName = String(sale?.customer_name || '-');
+            const saleDate = formatDate(sale?.created_at || '');
+            const paymentType = String(sale?.payment_type || '');
+            const status = String(sale?.status || '');
+            const totalAmount = Number(sale?.total_amount || 0);
+
+            if (saleViewTitle instanceof HTMLElement) {
+                saleViewTitle.textContent = `Sale #${saleId} Details`;
+            }
+
+            if (saleViewMeta instanceof HTMLElement) {
+                saleViewMeta.innerHTML = `
+                    <span><strong>Customer:</strong> ${sanitize(customerName)}</span>
+                    <span><strong>Date:</strong> ${sanitize(saleDate)}</span>
+                    <span><strong>Payment:</strong> ${buildStatusChip(paymentType)}</span>
+                    <span><strong>Status:</strong> ${buildStatusChip(status)}</span>
+                `;
+            }
+
+            const items = Array.isArray(sale?.items) ? sale.items : [];
+            if (items.length === 0) {
+                saleViewItemsBody.innerHTML = '<tr><td colspan="6" class="empty-cell">No items found for this sale.</td></tr>';
+            } else {
+                saleViewItemsBody.innerHTML = items
+                    .map((item) => {
+                        const orderedQty = Number(item?.ordered_qty || 0);
+                        const orderUnit = getOrderUnitLabel(item?.order_unit || 'piece');
+                        const baseUnits = Number(item?.base_units || 0);
+                        const price = Number(item?.price || 0);
+                        const subtotal = Number(item?.subtotal || 0);
+
+                        return `
+                            <tr>
+                                <td>${sanitize(item?.product_name || '-')}</td>
+                                <td>${sanitize(orderedQty)}</td>
+                                <td>${sanitize(orderUnit)}</td>
+                                <td>${sanitize(`${baseUnits} pcs`)}</td>
+                                <td>${toCurrency(price)}</td>
+                                <td>${toCurrency(subtotal)}</td>
+                            </tr>
+                        `;
+                    })
+                    .join('');
+            }
+
+            if (saleViewGrandTotal instanceof HTMLElement) {
+                saleViewGrandTotal.textContent = toCurrency(totalAmount);
+            }
+
+            refreshIcons();
+        }
+
         async function renderSales() {
             try {
                 const response = await request('api/sales_api.php');
@@ -893,6 +982,9 @@
                                                 <i data-lucide="badge-check"></i>Mark Paid
                                             </button>
                                         ` : ''}
+                                        <button class="btn btn-ghost btn-sm" type="button" data-action="view-sale" data-id="${sanitize(sale.id)}">
+                                            <i data-lucide="eye"></i>View
+                                        </button>
                                         <button class="btn btn-danger btn-sm" type="button" data-action="delete-sale" data-id="${sanitize(sale.id)}">
                                             <i data-lucide="trash-2"></i>Delete
                                         </button>
@@ -913,6 +1005,534 @@
             await hydrateSalesLookups();
             addItemRow();
             await renderSales();
+        })();
+    }
+
+    function initOngoingDeliveriesModule() {
+        const tableBody = document.querySelector('#ongoingDeliveriesTable tbody');
+        const createForm = document.getElementById('ongoingDeliveryForm');
+        const createModal = document.getElementById('ongoingDeliveryModal');
+        const createItemsContainer = document.getElementById('ongoingItemsContainer');
+        const addItemButton = document.getElementById('addOngoingItemBtn');
+        const createButton = document.querySelector('[data-open-modal="ongoingDeliveryModal"]');
+        const customerSuggestions = document.getElementById('ongoingDeliveryCustomerList');
+        const completeModal = document.getElementById('ongoingCompleteModal');
+        const completeForm = document.getElementById('ongoingCompleteForm');
+        const completeItemsContainer = document.getElementById('ongoingCompleteItems');
+        const completeTitle = document.getElementById('ongoingCompleteTitle');
+
+        if (!(tableBody instanceof HTMLElement) || !(createForm instanceof HTMLFormElement) || !(createItemsContainer instanceof HTMLElement) || !(completeForm instanceof HTMLFormElement) || !(completeItemsContainer instanceof HTMLElement)) {
+            return;
+        }
+
+        const orderUnitLabels = {
+            piece: 'Piece',
+            case: 'Case',
+            half_case: 'Half Case',
+            quarter_case: 'Quarter Case',
+        };
+
+        const getOrderUnitLabel = (unit) => {
+            const key = String(unit || '').trim();
+            return orderUnitLabels[key] || key || 'Piece';
+        };
+
+        const normalizeDeliveredQtyInput = (input) => {
+            if (!(input instanceof HTMLInputElement)) {
+                return;
+            }
+
+            const maxQty = Number(input.max || 0);
+            let deliveredQty = Number(input.value || 0);
+
+            if (Number.isNaN(deliveredQty) || deliveredQty < 0) {
+                deliveredQty = 0;
+            }
+
+            if (maxQty > 0 && deliveredQty > maxQty) {
+                deliveredQty = maxQty;
+            }
+
+            input.value = String(deliveredQty);
+        };
+
+        const updateReadyButtonState = (row) => {
+            if (!(row instanceof HTMLElement)) {
+                return;
+            }
+
+            const deliveredInput = row.querySelector('input[name="delivered_qty"]');
+            const readyButton = row.querySelector('[data-action="ready-ongoing-item"]');
+            const readyLabel = row.querySelector('[data-ready-label]');
+
+            if (!(deliveredInput instanceof HTMLInputElement) || !(readyButton instanceof HTMLButtonElement) || !(readyLabel instanceof HTMLElement)) {
+                return;
+            }
+
+            normalizeDeliveredQtyInput(deliveredInput);
+
+            const maxQty = Number(deliveredInput.max || 0);
+            const deliveredQty = Number(deliveredInput.value || 0);
+
+            readyButton.classList.remove('btn-primary', 'btn-ghost', 'btn-danger');
+
+            if (maxQty > 0 && deliveredQty >= maxQty) {
+                readyButton.classList.add('btn-primary');
+                readyLabel.textContent = 'Ready';
+                return;
+            }
+
+            if (deliveredQty === 0) {
+                readyButton.classList.add('btn-danger');
+                readyLabel.textContent = 'Cancelled';
+                return;
+            }
+
+            readyButton.classList.add('btn-ghost');
+            readyLabel.textContent = 'Partial';
+        };
+
+        completeItemsContainer.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+
+            const readyButton = target.closest('[data-action="ready-ongoing-item"]');
+            if (!readyButton) {
+                return;
+            }
+
+            const row = readyButton.closest('.ongoing-complete-row');
+            if (!(row instanceof HTMLElement)) {
+                return;
+            }
+
+            const deliveredInput = row.querySelector('input[name="delivered_qty"]');
+            if (!(deliveredInput instanceof HTMLInputElement)) {
+                return;
+            }
+
+            const maxQty = Number(deliveredInput.max || 0);
+            deliveredInput.value = String(maxQty > 0 ? maxQty : 0);
+            updateReadyButtonState(row);
+        });
+
+        completeItemsContainer.addEventListener('input', (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLInputElement) || target.name !== 'delivered_qty') {
+                return;
+            }
+
+            const row = target.closest('.ongoing-complete-row');
+            if (!(row instanceof HTMLElement)) {
+                return;
+            }
+
+            updateReadyButtonState(row);
+        });
+
+        const hydrateLookups = async () => {
+            await loadProductCatalog();
+            try {
+                await loadCustomerCatalog();
+            } catch (error) {
+                state.customerCatalog = [];
+            }
+            renderCustomerNameSuggestions(customerSuggestions);
+        };
+
+        const loadNextReference = async () => {
+            try {
+                const response = await request('api/ongoing_delivery_api.php?action=next_reference');
+                setFormValue(createForm, 'reference_no', String(response?.data?.reference_no || ''));
+            } catch (error) {
+                setFormValue(createForm, 'reference_no', '');
+            }
+        };
+
+        const resetCreateForm = async () => {
+            createForm.reset();
+            createItemsContainer.innerHTML = '';
+            const now = new Date();
+            const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 10);
+            setFormValue(createForm, 'scheduled_date', localDate);
+            await hydrateLookups();
+            await loadNextReference();
+            addCreateItemRow();
+        };
+
+        createButton?.addEventListener('click', async () => {
+            await resetCreateForm();
+        });
+
+        addItemButton?.addEventListener('click', () => {
+            addCreateItemRow();
+        });
+
+        createItemsContainer.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+
+            const removeButton = target.closest('[data-action="remove-ongoing-item"]');
+            if (!removeButton) {
+                return;
+            }
+
+            const row = removeButton.closest('.sale-item-row');
+            row?.remove();
+
+            if (createItemsContainer.children.length === 0) {
+                addCreateItemRow();
+            }
+        });
+
+        initializeActionButtons(tableBody, {
+            'dispatch-ongoing': async (button) => {
+                const id = Number(button.getAttribute('data-id') || 0);
+                if (!id) {
+                    return;
+                }
+
+                const okay = window.confirm('Dispatch this order now? Stock will move to transit and be deducted.');
+                if (!okay) {
+                    return;
+                }
+
+                try {
+                    await request('api/ongoing_delivery_api.php', {
+                        method: 'PUT',
+                        data: {
+                            id,
+                            action: 'dispatch',
+                        },
+                    });
+                    showToast('Delivery dispatched successfully.');
+                    await renderOngoingDeliveries();
+                } catch (error) {
+                    showToast(error.message, 'error');
+                }
+            },
+            'cancel-ongoing': async (button) => {
+                const id = Number(button.getAttribute('data-id') || 0);
+                if (!id) {
+                    return;
+                }
+
+                const okay = window.confirm('Cancel this ongoing delivery?');
+                if (!okay) {
+                    return;
+                }
+
+                try {
+                    await request('api/ongoing_delivery_api.php', {
+                        method: 'PUT',
+                        data: {
+                            id,
+                            action: 'cancel',
+                        },
+                    });
+                    showToast('Ongoing delivery cancelled.');
+                    await renderOngoingDeliveries();
+                } catch (error) {
+                    showToast(error.message, 'error');
+                }
+            },
+            'complete-ongoing': async (button) => {
+                const id = Number(button.getAttribute('data-id') || 0);
+                if (!id) {
+                    return;
+                }
+
+                try {
+                    await openCompleteModal(id);
+                } catch (error) {
+                    showToast(error.message, 'error');
+                }
+            },
+        });
+
+        createForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            if (!createForm.reportValidity()) {
+                return;
+            }
+
+            const lineItems = [...createItemsContainer.querySelectorAll('.sale-item-row')]
+                .map((row) => {
+                    const productField = row.querySelector('select[name="product_id"]');
+                    const quantityField = row.querySelector('input[name="ordered_qty"]');
+                    const unitField = row.querySelector('select[name="order_unit"]');
+
+                    return {
+                        product_id: Number(productField?.value || 0),
+                        ordered_qty: Number(quantityField?.value || 0),
+                        order_unit: String(unitField?.value || 'piece'),
+                    };
+                })
+                .filter((item) => item.product_id > 0 && item.ordered_qty > 0);
+
+            if (lineItems.length === 0) {
+                showToast('Add at least one valid delivery order item.', 'error');
+                return;
+            }
+
+            const formData = new FormData(createForm);
+            const payload = {
+                reference_no: String(formData.get('reference_no') || '').trim(),
+                customer_name: String(formData.get('customer_name') || '').trim(),
+                payment_type: String(formData.get('payment_type') || 'cash'),
+                scheduled_date: String(formData.get('scheduled_date') || ''),
+                notes: String(formData.get('notes') || '').trim(),
+                items: lineItems,
+            };
+
+            try {
+                await request('api/ongoing_delivery_api.php', {
+                    method: 'POST',
+                    data: payload,
+                });
+
+                showToast('Ongoing delivery order created successfully.');
+                closeModal(createModal);
+                createForm.reset();
+                await renderOngoingDeliveries();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        });
+
+        completeForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            if (!completeForm.reportValidity()) {
+                return;
+            }
+
+            const formData = new FormData(completeForm);
+            const orderId = Number(formData.get('id') || 0);
+            if (!orderId) {
+                showToast('Missing ongoing delivery id.', 'error');
+                return;
+            }
+
+            const items = [...completeItemsContainer.querySelectorAll('input[name="delivered_qty"][data-item-id]')]
+                .map((input) => {
+                    if (!(input instanceof HTMLInputElement)) {
+                        return null;
+                    }
+
+                    const itemId = Number(input.dataset.itemId || 0);
+                    const deliveredQty = Number(input.value || 0);
+                    if (!itemId || Number.isNaN(deliveredQty) || deliveredQty < 0) {
+                        return null;
+                    }
+
+                    return {
+                        item_id: itemId,
+                        delivered_qty: deliveredQty,
+                    };
+                })
+                .filter((entry) => entry !== null);
+
+            try {
+                const response = await request('api/ongoing_delivery_api.php', {
+                    method: 'PUT',
+                    data: {
+                        id: orderId,
+                        action: 'complete',
+                        items,
+                    },
+                });
+
+                showToast(String(response.message || 'Delivery finalized successfully.'));
+                closeModal(completeModal);
+                completeForm.reset();
+                completeItemsContainer.innerHTML = '';
+                await renderOngoingDeliveries();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        });
+
+        function addCreateItemRow(defaultItem = {}) {
+            const row = document.createElement('div');
+            row.className = 'sale-item-row';
+
+            row.innerHTML = `
+                <div>
+                    <label>Product</label>
+                    <select name="product_id" required>
+                        <option value="">Select product</option>
+                        ${getProductOptionsHtml(defaultItem.product_id || '')}
+                    </select>
+                </div>
+                <div>
+                    <label>Order Unit</label>
+                    <select name="order_unit" required>
+                        <option value="piece" ${defaultItem.order_unit === 'piece' ? 'selected' : ''}>Piece</option>
+                        <option value="case" ${defaultItem.order_unit === 'case' ? 'selected' : ''}>Full Case</option>
+                        <option value="half_case" ${defaultItem.order_unit === 'half_case' ? 'selected' : ''}>Half Case</option>
+                        <option value="quarter_case" ${defaultItem.order_unit === 'quarter_case' ? 'selected' : ''}>Quarter Case</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Order Qty</label>
+                    <input name="ordered_qty" type="number" min="1" step="1" value="${sanitize(defaultItem.ordered_qty || 1)}" required>
+                </div>
+                <button class="btn btn-danger btn-sm" type="button" data-action="remove-ongoing-item">
+                    <i data-lucide="minus"></i>
+                    Remove
+                </button>
+            `;
+
+            createItemsContainer.appendChild(row);
+            refreshIcons();
+        }
+
+        async function openCompleteModal(id) {
+            const response = await request(`api/ongoing_delivery_api.php?id=${id}`);
+            const order = response.data || {};
+            const items = Array.isArray(order.items) ? order.items : [];
+
+            if (items.length === 0) {
+                throw new Error('This order has no items to finalize.');
+            }
+
+            setFormValue(completeForm, 'id', id);
+
+            if (completeTitle) {
+                completeTitle.textContent = `Finalize ${order.reference_no || ''} - ${order.customer_name || ''}`.trim();
+            }
+
+            completeItemsContainer.innerHTML = items
+                .map((item) => {
+                    const orderedQty = Number(item.ordered_qty || 0);
+                    const loadedUnits = Number(item.loaded_units || 0);
+                    const unitLabel = getOrderUnitLabel(item.order_unit);
+                    return `
+                        <div class="sale-item-row ongoing-complete-row">
+                            <div>
+                                <label>Product</label>
+                                <input type="text" value="${sanitize(`${item.product_name || ''} (${item.size || '-'})`)}" disabled>
+                                <small class="field-help ongoing-complete-meta">
+                                    <span>Ordered: ${sanitize(`${orderedQty} ${unitLabel}`)}</span>
+                                    <span>Loaded: ${sanitize(`${loadedUnits} pcs`)}</span>
+                                </small>
+                            </div>
+                            <div>
+                                <label>Order Unit</label>
+                                <input type="text" value="${sanitize(unitLabel)}" disabled>
+                            </div>
+                            <div>
+                                <label>Delivered Qty</label>
+                                <input
+                                    name="delivered_qty"
+                                    type="number"
+                                    min="0"
+                                    max="${sanitize(orderedQty)}"
+                                    step="1"
+                                    value="${sanitize(orderedQty)}"
+                                    data-item-id="${sanitize(item.id)}"
+                                    required
+                                >
+                            </div>
+                            <div class="ongoing-ready-col">
+                                <label class="ongoing-ready-col-label">Quick Set</label>
+                                <button class="btn ongoing-ready-btn" type="button" data-action="ready-ongoing-item" title="Set delivered qty to full ordered qty">
+                                    <i data-lucide="check"></i>
+                                    <span data-ready-label>Ready</span>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                })
+                .join('');
+
+            completeItemsContainer.querySelectorAll('.ongoing-complete-row').forEach((row) => {
+                if (row instanceof HTMLElement) {
+                    updateReadyButtonState(row);
+                }
+            });
+
+            openModal('ongoingCompleteModal');
+            refreshIcons();
+        }
+
+        async function renderOngoingDeliveries() {
+            try {
+                const response = await request('api/ongoing_delivery_api.php');
+                const rows = Array.isArray(response.data) ? response.data : [];
+
+                if (rows.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="8" class="empty-cell">No ongoing deliveries yet.</td></tr>';
+                    return;
+                }
+
+                tableBody.innerHTML = rows
+                    .map((order) => {
+                        const status = String(order.status || 'pending_dispatch');
+                        const loaded = Number(order.loaded_units || 0);
+                        const delivered = Number(order.delivered_units || 0);
+                        const scheduledDate = String(order.scheduled_date || '').slice(0, 10);
+
+                        let actionsHtml = '<span class="muted">No actions</span>';
+
+                        if (status === 'pending_dispatch') {
+                            actionsHtml = `
+                                <div class="inline-actions">
+                                    <button class="btn btn-primary btn-sm" type="button" data-action="dispatch-ongoing" data-id="${sanitize(order.id)}">
+                                        <i data-lucide="truck"></i>Dispatch
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" type="button" data-action="cancel-ongoing" data-id="${sanitize(order.id)}">
+                                        <i data-lucide="x-circle"></i>Cancel
+                                    </button>
+                                </div>
+                            `;
+                        } else if (status === 'in_transit') {
+                            actionsHtml = `
+                                <div class="inline-actions">
+                                    <button class="btn btn-ghost btn-sm" type="button" data-action="complete-ongoing" data-id="${sanitize(order.id)}">
+                                        <i data-lucide="clipboard-check"></i>Finalize
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" type="button" data-action="cancel-ongoing" data-id="${sanitize(order.id)}">
+                                        <i data-lucide="x-circle"></i>Cancel
+                                    </button>
+                                </div>
+                            `;
+                        } else if (status === 'completed') {
+                            actionsHtml = order.sale_id
+                                ? `<a class="btn btn-ghost btn-sm" href="index.php?module=sales"><i data-lucide="receipt-text"></i>View Sale #${sanitize(order.sale_id)}</a>`
+                                : '<span class="muted">Completed</span>';
+                        }
+
+                        return `
+                            <tr>
+                                <td>${sanitize(order.reference_no)}</td>
+                                <td>${sanitize(order.customer_name)}</td>
+                                <td>${sanitize(scheduledDate || '-')}</td>
+                                <td>${buildStatusChip(order.payment_type)}</td>
+                                <td>${buildStatusChip(order.status)}</td>
+                                <td>${sanitize(`${loaded} pcs`)}</td>
+                                <td>${sanitize(`${delivered} pcs`)}</td>
+                                <td>${actionsHtml}</td>
+                            </tr>
+                        `;
+                    })
+                    .join('');
+
+                refreshIcons();
+            } catch (error) {
+                tableBody.innerHTML = `<tr><td colspan="8" class="empty-cell">${sanitize(error.message)}</td></tr>`;
+            }
+        }
+
+        (async () => {
+            await hydrateLookups();
+            await renderOngoingDeliveries();
         })();
     }
 
